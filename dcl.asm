@@ -21,11 +21,11 @@ section .bss
 
 section .text
 
-%macro checkRange 0
-    cmp     cl, [rsi]       
-    ja      error           ; '1' > literka
+%macro checkRange 0         
+    cmp     cl, [rsi]       ; w cl znajduje się '1', a w al 'Z'
+    ja      error           ; '1' > znak
     cmp     [rsi], al
-    ja      error           ; literka > 'Z'
+    ja      error           ; znak > 'Z'
 %endmacro
 
 ; sprawdza, czy w rsi jest poprawny parametr L, R lub T.
@@ -101,16 +101,16 @@ _start:
     checkKey
     getInput
     
-    ;sub byte    [L], 49
-    xor r8, r8
-    mov     r8b, [buffer]
-    cmp  byte   [L], 0
-    je      error
-    sub     r8b, [L]
-    mov     [buffer], r8b
-    ;sub    [buffer], [r8b]
-    printString buffer, 1
-    printString NEWLINE, 1
+    ; tutaj podejmowałem pewnie nieudane próby 'szyfrowania' 
+    ; xor r8, r8
+    ; mov     r8b, [buffer]
+    ; cmp  byte   [L], 0
+    ; je      error
+    ; sub     r8b, [L]
+    ; mov     [buffer], r8b
+    ; sub    [buffer], [r8b]
+    ; printString buffer, 1
+    ; printString NEWLINE, 1
     jmp exit
 
 exit:                       ; zakończenie programu bez błędów
