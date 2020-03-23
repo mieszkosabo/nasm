@@ -8,44 +8,48 @@ BUFFER_SIZE equ 4096
 
 global _start
 
-section .rodata
-    NEWLINE db  `\n`
+section .data
+    Linv   TIMES 42 db  0
+    Rinv   TIMES 42 db  0
+    Tinv   TIMES 42 db  0
 
 section .bss
     buffer  resb    BUFFER_SIZE
-    L       resb    42
-    R       resb    42
-    T       resb    42
     l       resb    1
     r       resb    1
 
 section .text
 
 %macro checkRange 0         
-    cmp     cl, [rsi]       ; w cl znajduje się '1', a w al 'Z'
+    cmp     cl, dl       ; w cl znajduje się '1', a w al 'Z'
     ja      error           ; '1' > znak
-    cmp     [rsi], al
+    cmp     dl, al
     ja      error           ; znak > 'Z'
 %endmacro
 
 ; sprawdza, czy w rsi jest poprawny parametr L, R lub T.
 ; parametrem jest przesunięcie względem rsp - wskaźnik do parametru
+; w r8 jest wskaźnik do permutacji odwrotnej, początowo wypełnionej
+; zerami.
 %macro  checkParam 1
     mov rsi, [rsp + %1]         ; przenosimy odpowiedni napis do rsi
     mov cl, '1'                 ; akceptowane są znaki z przedziału
     mov al, 'Z'                 ; 1 - Z
+    xor r9, r9                  ; r9 będzie licznikiem
     %%loop:
-        cmp     [rsi], byte 0   ; sprawdź, czy koniec napisu
-        je %%return_from_check
+        movzx   edx, byte [rsi] ; w rax mamy znak z permutacji
+        test    rdx, rdx        ; sprawdź, czy koniec napisu
+        jz %%return_from_check
         checkRange              ; sprawdź, czy znak jestw akceptowalnym zakresie
-        sub byte [rsi], '1'        ; normalizujemy do liczb od 0 do 41
+        cmp byte [r8 + rdx - '1'], 0 ; sprawdź, czy nie pojawił się ten znak już
+        jne     error           ; jeśli się pojawił, to nie jest permutacja
+        mov [r8 + rdx - '1'], r9b   ; Inv['z'] = licznik++;
+        inc     r9                  ; TODO inv może też być + '1'?
         inc     rsi
         jmp     %%loop
     %%return_from_check:
-        sub     rsi, [rsp + %1] ; oblicz długośc wczytanego napisu
-        cmp     rsi, 3          ; parametry L, R i T muszą mieć 42 znaki ;TODO zminić na 42
+        cmp     r9, 42          ; parametry L, R i T muszą mieć 42 znaki
         jne     error
-        mov rsi, [rsp + %1]
 %endmacro
 
 %macro  checkKey 0
@@ -92,25 +96,17 @@ _start:
     cmp     r8, 5           ; 4 parametry + nazwa programu
     jne     error           ; zła liczba argumentów
 
+    mov     r8, Linv
     checkParam 8 * 2        ; pierwszy arg (L)
-    mov     [L], rsi
+    mov     r8, Rinv
     checkParam 8 * 3        ; drugi arg (R)
-    mov     [R], rsi
+    mov     r8, Tinv
     checkParam 8 * 4        ; trzeci arg (T)
-    mov     [T], rsi
-    checkKey
-    getInput
+    ;checkKey               ; TODO
+    ;getInput
+
+    ; TODO szyfrowanie i wypisywanie bufora w while
     
-    ; tutaj podejmowałem pewnie nieudane próby 'szyfrowania' 
-    ; xor r8, r8
-    ; mov     r8b, [buffer]
-    ; cmp  byte   [L], 0
-    ; je      error
-    ; sub     r8b, [L]
-    ; mov     [buffer], r8b
-    ; sub    [buffer], [r8b]
-    ; printString buffer, 1
-    ; printString NEWLINE, 1
     jmp exit
 
 exit:                       ; zakończenie programu bez błędów
