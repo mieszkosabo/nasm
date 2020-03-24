@@ -52,6 +52,24 @@ section .text
         jne     error
 %endmacro
 
+%macro checkT 0
+    mov rbx, [rsp + 8 * 4]
+    mov dl, '1' 
+    %%loop:
+        cmp dl, 91
+        je %%endloop
+        movzx r8, byte [rbx + rdx - '1']
+        cmp r8b, dl
+        je error2
+        movzx r8, byte [rbx + r8 - '1']
+        cmp r8b, dl
+        jne error2
+
+        inc dl
+        jmp %%loop
+    %%endloop:
+%endmacro
+
 %macro  createInvKey 1
     mov %1, dl
     cmp %1, '1'
@@ -119,7 +137,7 @@ section .text
 
 %macro Xperm 1
     mov rbx, %1                         ; w rbx mamy adres permutacji
-    movzx edx, byte [rbx + rdx - '1']   ; wykonanie permutacji
+    movzx edx, byte [rbx + rdx - '1']   ; wykonanie permutacji w rdx
 %endmacro
 
 %macro cypherBuff 0
@@ -181,7 +199,6 @@ section .text
         inc r9
         jmp %%loop
     %%return_from_cypher:
-    ; wychodzimy z pętli
 %endmacro
 
 _start:
@@ -195,14 +212,15 @@ _start:
     checkParam 8 * 3        ; drugi arg (R)
     mov     r8, Tinv
     checkParam 8 * 4        ; trzeci arg (T)
-    checkKey 
+    checkT
+    checkKey                
         
 reading:
     getInput                ; w rax mamy liczbę wczytanych bajtów
     test rax, rax           ; sprawdzamy, czy EOF
     jz  exit                ; jak tak, to koniec danych
     cypherBuff
-    printString buffer, rax
+    printString buffer, r9
     jmp reading
 
 exit:                       ; zakończenie programu bez błędów
