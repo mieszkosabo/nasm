@@ -20,38 +20,6 @@ section .bss
 
 section .text
 
-%macro checkRange 0         
-    cmp     cl, dl          ; w cl znajduje się '1', a w al 'Z'
-    ja      error           ; '1' > znak
-    cmp     dl, al
-    ja      error           ; znak > 'Z'
-%endmacro
-
-; sprawdza, czy w rsi jest poprawny parametr L, R lub T.
-; parametrem jest przesunięcie względem rsp - wskaźnik do parametru
-; w r8 jest wskaźnik do permutacji odwrotnej, początowo wypełnionej
-; zerami.
-%macro  checkParam 1
-    mov rsi, [rsp + %1]         ; przenosimy odpowiedni napis do rsi
-    mov cl, '1'                 ; akceptowane są znaki z przedziału
-    mov al, 'Z'                 ; 1 - Z
-    mov r9, 49                  ; r9 będzie licznikiem
-    %%loop:
-        movzx   edx, byte [rsi] ; w rdx mamy znak z permutacji
-        test    rdx, rdx        ; sprawdź, czy koniec napisu
-        jz %%return_from_check
-        checkRange              ; sprawdź, czy znak jestw akceptowalnym zakresie
-        cmp byte [r8 + rdx - '1'], 0 ; sprawdź, czy nie pojawił się ten znak już
-        jne     error           ; jeśli się pojawił, to nie jest permutacja
-        mov [r8 + rdx - '1'], r9b   ; Inv['z'] = licznik++;
-        inc     r9                  ; TODO inv może też być + '1'?
-        inc     rsi
-        jmp     %%loop
-    %%return_from_check:
-        cmp     r9, 91          ; parametry L, R i T muszą mieć 42 znaki (42 + 49 = 91)
-        jne     error
-%endmacro
-
 %macro checkT 0
     mov rbx, [rsp + 8 * 4]
     mov dl, '1' 
@@ -84,7 +52,7 @@ section .text
     movzx   edx, byte [rsi]
     test    rdx, rdx            ; sprawdź, czy koniec napisu
     jz      error
-    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
+    call checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
     mov     %1, dl              ; przypisuję l na r12b, r na r13b, l' na r14b
     createInvKey %2             ; i r' na r15b
     inc     rsi
@@ -116,16 +84,6 @@ section .text
     syscall
 %endmacro
 
-%macro Qperm 1
-    add dl, %1
-    sub dl, '1'             
-    cmp dl, 'Z'
-    jbe %%end                         ; mniejsze równe od 'Z', czyli ok
-    sub dl, ALPHABET_SIZE             ; przesuwamy cyklicznie od początku naszego alfabetu
-
-    %%end:
-%endmacro
-
 %macro Xperm 1
     mov rbx, %1                         ; w rbx mamy adres permutacji
     movzx edx, byte [rbx + rdx - '1']   ; wykonanie permutacji w rdx
@@ -139,7 +97,7 @@ section .text
         movzx edx, byte [buffer + r9]  ; w rdx mamy znak do przepermutowania
         test rdx, rdx
         jz  %%return_from_cypher
-        checkRange
+        call checkRange
 
         inc r13b                ; TODO omakrować to
         cmp r13b, 91             ; sprawdzamy, czy bębenek R nie wyszedł poza zakres
@@ -168,23 +126,31 @@ section .text
         jne %%cypherStart
         mov r14b, 'Z'
     %%cypherStart:
-        Qperm r13b          ; Qr
+        mov bpl, r13b
+        call Qperm          ; Qr
         Xperm [rsp + 8 * 3] ; R
-        Qperm r15b          ; Qr^-1
+        mov bpl, r15b
+        call Qperm          ; Qr^-1
 
-        Qperm r12b          ; Ql
+        mov bpl, r12b
+        call Qperm          ; Ql
         Xperm [rsp + 8 * 2] ; L
-        Qperm r14b          ; Ql^-1
+        mov bpl, r14b
+        call Qperm          ; Ql^-1
 
         Xperm [rsp + 8 * 4] ; T
 
-        Qperm r12b          ; Ql
+        mov bpl, r12b
+        call Qperm          ; Ql
         Xperm Linv          ; Linv
-        Qperm r14b          ; Ql^-1
+        mov bpl, r14b
+        call Qperm          ; Ql^-1
 
-        Qperm r13b          ; Qr
+        mov bpl, r13b
+        call Qperm          ; Qr
         Xperm Rinv          ; Rinv
-        Qperm r15b          ; Qr^-1
+        mov bpl, r15b
+        call Qperm          ; Qr^-1
 
         mov [buffer + r9], dl
         inc r9
@@ -196,13 +162,17 @@ _start:
     mov     r8, [rsp]       ; liczba argumentów
     cmp     r8, 5           ; 4 parametry + nazwa programu
     jne     error           ; zła liczba argumentów
+    xor     r10, r10
 
     mov     r8, Linv
-    checkParam 8 * 2        ; pierwszy arg (L)
+    lea     rbp, [rsp + 16]
+    call    checkParam      ; pierwszy arg (L)
     mov     r8, Rinv
-    checkParam 8 * 3        ; drugi arg (R)
+    add     rbp, 8
+    call    checkParam      ; drugi arg (R)
+    add     rbp, 8
     mov     r8, Tinv
-    checkParam 8 * 4        ; trzeci arg (T)
+    call    checkParam      ; trzeci arg (T)
     checkT
     checkKey                
         
@@ -223,3 +193,42 @@ error:                      ; wyjście spowodowane złymi danymi
     mov     eax, SYS_EXIT
     mov     edi, 1          ; kod powrotu 1
     syscall
+
+checkParam:
+    mov rsi, [rbp]         ; przenosimy odpowiedni napis do rsi
+    mov cl, '1'                 ; akceptowane są znaki z przedziału
+    mov al, 'Z'                 ; 1 - Z
+    mov r9, 49                  ; r9 będzie licznikiem
+loop:
+    movzx   edx, byte [rsi]     ; w rdx mamy znak z permutacji
+    test    rdx, rdx            ; sprawdź, czy koniec napisu
+    jz return_from_check
+    call checkRange                  ; sprawdź, czy znak jestw akceptowalnym zakresie
+    cmp byte [r8 + rdx - '1'], 0 ; sprawdź, czy nie pojawił się ten znak już
+    jne     error               ; jeśli się pojawił, to nie jest permutacja
+    mov [r8 + rdx - '1'], r9b   ; Inv['z'] = licznik++;
+    inc     r9                  ; TODO inv może też być + '1'?
+    inc     rsi
+    jmp     loop
+return_from_check:
+    cmp     r9, 91              ; parametry L, R i T muszą mieć 42 znaki (42 + 49 = 91)
+    jne     error
+    ret
+
+
+checkRange:
+    cmp     cl, dl          ; w cl znajduje się '1', a w al 'Z'
+    ja      error           ; '1' > znak
+    cmp     dl, al
+    ja      error           ; znak > 'Z'
+    ret
+
+
+Qperm:
+    add dl, bpl
+    sub dl, '1'
+    cmp dl, 'Z'
+    jbe end
+    sub dl, ALPHABET_SIZE
+end:
+    ret
