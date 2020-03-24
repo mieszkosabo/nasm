@@ -52,25 +52,39 @@ section .text
         jne     error
 %endmacro
 
+%macro  createInvKey 1
+    mov %1, dl
+    cmp %1, '1'
+    je  %%else
+    mov %1, 91
+    sub %1, dl
+    add %1, '1'
+    %%else:
+%endmacro
+
 %macro  checkKey 0
     mov rsi, [rsp + 8 * 5]      ; umieszczamy w rsi wskaźnik do klucza
     mov cl, '1'                 ; akceptowane są znaki z przedziału
     mov al, 'Z'                 ; 1 - Z
-    xor r11, r11
-    xor r10, r10
+    xor r12, r12                ; l
+    xor r13, r13                ; r
+    xor r14, r14                ; l'
+    xor r15, r15                ; r'
 
     movzx   edx, byte [rsi]
     test    rdx, rdx            ; sprawdź, czy koniec napisu
     jz      error
     checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
-    mov     r10b, dl            ; przypisuję l na r10b
+    mov     r12b, dl            ; przypisuję l na r12b
+    createInvKey r14b           ; tworzę l'
     inc     rsi
     
     movzx   edx, byte [rsi]
     test    rdx, rdx            ; sprawdź, czy koniec napisu
     jz      error
     checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
-    mov     r11b, dl            ; przypisuję r na r11b
+    mov     r13b, dl            ; przypisuję r na r13b
+    createInvKey r15b           ; tworzę r'
     inc     rsi                 
 
     cmp     [rsi], byte 0       ; sprawdź, czy koniec napisu
@@ -94,14 +108,18 @@ section .text
 %endmacro
 
 %macro Qperm 1
-    add rdx, %1
-    sub rdx, '1'             
-    cmp rdx, 'Z'
-    jbe %%end                          ; mniejsze równe od 'Z', czyli ok
-    sub rdx, ALPHABET_SIZE             ; przesuwamy cyklicznie od początku naszego alfabetu
+    add dl, %1
+    sub dl, '1'             
+    cmp dl, 'Z'
+    jbe %%end                         ; mniejsze równe od 'Z', czyli ok
+    sub dl, ALPHABET_SIZE             ; przesuwamy cyklicznie od początku naszego alfabetu
 
     %%end:
-    ; koniec makra
+%endmacro
+
+%macro Xperm 1
+    mov rbx, %1                         ; w rbx mamy adres permutacji
+    movzx edx, byte [rbx + rdx - '1']   ; wykonanie permutacji
 %endmacro
 
 %macro cypherBuff 0
@@ -112,27 +130,52 @@ section .text
         movzx edx, byte [buffer + r9]  ; w rdx mamy znak do przepermutowania
         test rdx, rdx
         jz  %%return_from_cypher
-        ;checkRange
+        checkRange
 
-        inc r11b
-        cmp r11b, 91             ; sprawdzamy, czy bębenek R nie wyszedł poza zakres
+        inc r13b                ; TODO omakrować to
+        cmp r13b, 91             ; sprawdzamy, czy bębenek R nie wyszedł poza zakres
         jne %%else
-        mov r11b, '1'
-    %%else:                     ; sprawdzamy czy R w pozycji obrotowej
-        cmp r11b, 'L'
-        je  %%incLRotor
-        cmp r11b, 'R'
-        je  %%incLRotor
-        cmp r11b, 'T'
+        mov r13b, '1'
+    %%else:                     ; r'
+        dec r15b
+        cmp r15b, '0'
         jne %%else2
+        mov r15b, 'Z'
+    %%else2:                    ; sprawdzamy czy R w pozycji obrotowej
+        cmp r13b, 'L'
+        je  %%incLRotor
+        cmp r13b, 'R'
+        je  %%incLRotor
+        cmp r13b, 'T'
+        jne %%cypherStart
     %%incLRotor:                ; jeśli R w obrotowej, to obracamy L
-        inc r10b
-        cmp r10b, 91             ; sprawdzamy, czy bębenek L nie wyszedł poza zakres
-        jne %%else2
-        mov r10b, '1'
-    %%else2:
-        Qperm r10
-        ; TODO reszta permutacji
+        inc r12b
+        cmp r12b, 91             ; sprawdzamy, czy bębenek L nie wyszedł poza zakres
+        jne %%else3
+        mov r12b, '1'
+    %%else3:
+        dec r14b
+        cmp r14b, '0'
+        jne %%cypherStart
+        mov r14b, 'Z'
+    %%cypherStart:
+        Qperm r13b          ; Qr
+        Xperm [rsp + 8 * 3] ; R
+        Qperm r15b          ; Qr^-1
+
+        Qperm r12b          ; Ql
+        Xperm [rsp + 8 * 2] ; L
+        Qperm r14b          ; Ql^-1
+
+        Xperm [rsp + 8 * 4] ; T
+
+        Qperm r12b          ; Ql
+        Xperm Linv          ; Linv
+        Qperm r14b          ; Ql^-1
+
+        Qperm r13b          ; Qr
+        Xperm Rinv          ; Rinv
+        Qperm r15b          ; Qr^-1
 
         mov [buffer + r9], dl
         inc r9
@@ -170,4 +213,9 @@ exit:                       ; zakończenie programu bez błędów
 error:                      ; wyjście spowodowane złymi danymi
     mov     eax, SYS_EXIT
     mov     edi, 1          ; kod powrotu 1
+    syscall
+
+error2:                      ; wyjście spowodowane złymi danymi
+    mov     eax, SYS_EXIT
+    mov     edi, 3          ; kod powrotu 3
     syscall
