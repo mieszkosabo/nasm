@@ -60,10 +60,10 @@ section .text
         je %%endloop
         movzx r8, byte [rbx + rdx - '1']
         cmp r8b, dl
-        je error2
+        je error
         movzx r8, byte [rbx + r8 - '1']
         cmp r8b, dl
-        jne error2
+        jne error
 
         inc dl
         jmp %%loop
@@ -80,31 +80,22 @@ section .text
     %%else:
 %endmacro
 
+%macro verifySingleKey 2
+    movzx   edx, byte [rsi]
+    test    rdx, rdx            ; sprawdź, czy koniec napisu
+    jz      error
+    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
+    mov     %1, dl              ; przypisuję l na r12b, r na r13b, l' na r14b
+    createInvKey %2             ; i r' na r15b
+    inc     rsi
+%endmacro
+
 %macro  checkKey 0
     mov rsi, [rsp + 8 * 5]      ; umieszczamy w rsi wskaźnik do klucza
     mov cl, '1'                 ; akceptowane są znaki z przedziału
     mov al, 'Z'                 ; 1 - Z
-    xor r12, r12                ; l
-    xor r13, r13                ; r
-    xor r14, r14                ; l'
-    xor r15, r15                ; r'
-
-    movzx   edx, byte [rsi]
-    test    rdx, rdx            ; sprawdź, czy koniec napisu
-    jz      error
-    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
-    mov     r12b, dl            ; przypisuję l na r12b
-    createInvKey r14b           ; tworzę l'
-    inc     rsi
-    
-    movzx   edx, byte [rsi]
-    test    rdx, rdx            ; sprawdź, czy koniec napisu
-    jz      error
-    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
-    mov     r13b, dl            ; przypisuję r na r13b
-    createInvKey r15b           ; tworzę r'
-    inc     rsi                 
-
+    verifySingleKey r12b, r14b
+    verifySingleKey r13b, r15b
     cmp     [rsi], byte 0       ; sprawdź, czy koniec napisu
     jne     error               ; jeśli to nie koniec, to błąd 
 %endmacro
@@ -231,9 +222,4 @@ exit:                       ; zakończenie programu bez błędów
 error:                      ; wyjście spowodowane złymi danymi
     mov     eax, SYS_EXIT
     mov     edi, 1          ; kod powrotu 1
-    syscall
-
-error2:                      ; wyjście spowodowane złymi danymi
-    mov     eax, SYS_EXIT
-    mov     edi, 3          ; kod powrotu 3
     syscall
