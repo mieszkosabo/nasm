@@ -3,7 +3,7 @@ SYS_EXIT    equ 60
 SYS_READ    equ 0
 STD_IN      equ 0
 STD_OUT     equ 1
-ALPHABET_SIZE   equ 42
+ALPHABET_SIZE   equ 42  
 BUFFER_SIZE equ 4096
 
 global _start
@@ -21,7 +21,7 @@ section .bss
 section .text
 
 %macro checkRange 0         
-    cmp     cl, dl       ; w cl znajduje się '1', a w al 'Z'
+    cmp     cl, dl          ; w cl znajduje się '1', a w al 'Z'
     ja      error           ; '1' > znak
     cmp     dl, al
     ja      error           ; znak > 'Z'
@@ -35,9 +35,9 @@ section .text
     mov rsi, [rsp + %1]         ; przenosimy odpowiedni napis do rsi
     mov cl, '1'                 ; akceptowane są znaki z przedziału
     mov al, 'Z'                 ; 1 - Z
-    xor r9, r9                  ; r9 będzie licznikiem
+    mov r9, 49                  ; r9 będzie licznikiem
     %%loop:
-        movzx   edx, byte [rsi] ; w rax mamy znak z permutacji
+        movzx   edx, byte [rsi] ; w rdx mamy znak z permutacji
         test    rdx, rdx        ; sprawdź, czy koniec napisu
         jz %%return_from_check
         checkRange              ; sprawdź, czy znak jestw akceptowalnym zakresie
@@ -48,7 +48,7 @@ section .text
         inc     rsi
         jmp     %%loop
     %%return_from_check:
-        cmp     r9, 42          ; parametry L, R i T muszą mieć 42 znaki
+        cmp     r9, 91          ; parametry L, R i T muszą mieć 42 znaki (42 + 49 = 91)
         jne     error
 %endmacro
 
@@ -56,30 +56,32 @@ section .text
     mov rsi, [rsp + 8 * 5]      ; umieszczamy w rsi wskaźnik do klucza
     mov cl, '1'                 ; akceptowane są znaki z przedziału
     mov al, 'Z'                 ; 1 - Z
+    xor r11, r11
+    xor r10, r10
 
-    cmp     [rsi], byte 0       ; sprawdź, czy koniec napisu
-    je      error
-    checkRange                  ; sprawdź, czy znak jestw akceptowalnym zakresie
-    mov     [l], rsi
-    sub byte [l], 49            ; normalizujemy l do liczby
+    movzx   edx, byte [rsi]
+    test    rdx, rdx            ; sprawdź, czy koniec napisu
+    jz      error
+    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
+    mov     r10b, dl            ; przypisuję l na r10b
     inc     rsi
     
-    cmp     [rsi], byte 0       ; teraz patrzymy na r
-    je      error
-    checkRange
-    mov     [r], rsi
-    sub byte [r], 49            ; normalizujemy l do liczby
-    inc     rsi
+    movzx   edx, byte [rsi]
+    test    rdx, rdx            ; sprawdź, czy koniec napisu
+    jz      error
+    checkRange                  ; sprawdź, czy znak jest akceptowalnym zakresie
+    mov     r11b, dl            ; przypisuję r na r11b
+    inc     rsi                 
 
     cmp     [rsi], byte 0       ; sprawdź, czy koniec napisu
     jne     error               ; jeśli to nie koniec, to błąd 
 %endmacro
 
 %macro printString 2
-    mov     eax, SYS_WRITE
-    mov     rdi, STD_OUT
     mov     rsi, %1
     mov     rdx, %2
+    mov     eax, SYS_WRITE
+    mov     rdi, STD_OUT
     syscall
 %endmacro
 
@@ -89,6 +91,54 @@ section .text
     mov     rsi, buffer
     mov     rdx, BUFFER_SIZE
     syscall
+%endmacro
+
+%macro Qperm 1
+    add rdx, %1
+    sub rdx, '1'             
+    cmp rdx, 'Z'
+    jbe %%end                          ; mniejsze równe od 'Z', czyli ok
+    sub rdx, ALPHABET_SIZE             ; przesuwamy cyklicznie od początku naszego alfabetu
+
+    %%end:
+    ; koniec makra
+%endmacro
+
+%macro cypherBuff 0
+    xor r9, r9                  ; index znaku w buforze
+    mov cl, '1'                 ; akceptowane są znaki z przedziału
+    mov al, 'Z'                 ; 1 - Z
+    %%loop:
+        movzx edx, byte [buffer + r9]  ; w rdx mamy znak do przepermutowania
+        test rdx, rdx
+        jz  %%return_from_cypher
+        ;checkRange
+
+        inc r11b
+        cmp r11b, 91             ; sprawdzamy, czy bębenek R nie wyszedł poza zakres
+        jne %%else
+        mov r11b, '1'
+    %%else:                     ; sprawdzamy czy R w pozycji obrotowej
+        cmp r11b, 'L'
+        je  %%incLRotor
+        cmp r11b, 'R'
+        je  %%incLRotor
+        cmp r11b, 'T'
+        jne %%else2
+    %%incLRotor:                ; jeśli R w obrotowej, to obracamy L
+        inc r10b
+        cmp r10b, 91             ; sprawdzamy, czy bębenek L nie wyszedł poza zakres
+        jne %%else2
+        mov r10b, '1'
+    %%else2:
+        Qperm r10
+        ; TODO reszta permutacji
+
+        mov [buffer + r9], dl
+        inc r9
+        jmp %%loop
+    %%return_from_cypher:
+    ; wychodzimy z pętli
 %endmacro
 
 _start:
@@ -102,12 +152,15 @@ _start:
     checkParam 8 * 3        ; drugi arg (R)
     mov     r8, Tinv
     checkParam 8 * 4        ; trzeci arg (T)
-    ;checkKey               ; TODO
-    ;getInput
-
-    ; TODO szyfrowanie i wypisywanie bufora w while
-    
-    jmp exit
+    checkKey 
+        
+reading:
+    getInput                ; w rax mamy liczbę wczytanych bajtów
+    test rax, rax           ; sprawdzamy, czy EOF
+    jz  exit                ; jak tak, to koniec danych
+    cypherBuff
+    printString buffer, rax
+    jmp reading
 
 exit:                       ; zakończenie programu bez błędów
     mov     eax, SYS_EXIT
