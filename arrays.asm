@@ -1,20 +1,28 @@
+SYS_READ    equ 0
+STD_IN      equ 0
+STD_OUT     equ 1
+
 global _start
 
-section .data
-    NEWLINE db  `\n`
-    arr   TIMES 42 db  0
+
+section .bss
+  r  resb  1
 
 
 section .text
 
-_start:
-  mov rsi, arr
-  mov r9, 2
-  mov byte [rsi + r9], 2
-  mov r8, [arr + r9]
-  cmp r8, 2
-  jnz error 
 
+
+_start:
+  mov rdx, 14
+  mov [r], dl
+  mov r11, [r]
+
+  inc r11
+  mov [r], r11
+  mov rdx, [r]
+  cmp rdx, 14
+  je  error
 
 exit:
   mov     eax, 60
