@@ -8,17 +8,31 @@ BUFFER_SIZE equ 4096
 
 global _start
 
-section .data
-    Linv   TIMES 42 db  0
-    Rinv   TIMES 42 db  0
-    Tinv   TIMES 42 db  0
+; section .data
+;     Linv   TIMES 42 db  0
+;     Rinv   TIMES 42 db  0
+;     Tinv   TIMES 42 db  0
 
 section .bss
     buffer  resb    BUFFER_SIZE
-    l       resb    1
-    r       resb    1
+    Linv    resb    42
+    Rinv    resb    42
+    Tinv    resb    42
 
 section .text
+
+%macro fillInvsWithZeros 0
+    xor al, al
+    mov ecx, 42
+    lea rdi, [Linv]
+    rep stosb
+    mov ecx, 42
+    lea rdi, [Rinv]
+    rep stosb
+    mov ecx, 42
+    lea rdi, [Tinv]
+    rep stosb
+%endmacro
 
 %macro checkT 0
     mov rbx, [rsp + 8 * 4]
@@ -162,8 +176,8 @@ _start:
     mov     r8, [rsp]       ; liczba argumentów
     cmp     r8, 5           ; 4 parametry + nazwa programu
     jne     error           ; zła liczba argumentów
-    xor     r10, r10
-
+    fillInvsWithZeros
+    
     mov     r8, Linv
     lea     rbp, [rsp + 16]
     call    checkParam      ; pierwszy arg (L)
