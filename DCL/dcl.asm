@@ -87,12 +87,9 @@ section .text
   mov     cl, '1'                     ; put arguments for checkRange
   mov     al, 'Z'                 
 %%loop:
-  cmp     r9, r10
+  cmp     r9, r10                     ; compare with no. of read bytes
   je      %%end
   movzx   edx, byte [buffer + r9]     ; put letter to permutate in rdx
-  test    rdx, rdx
-  jz      %%end
-  
   call    checkRange
 
   inc     r13b                        ; shift rotor R
