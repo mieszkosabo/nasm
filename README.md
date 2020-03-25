@@ -7,6 +7,7 @@ My programs written in NASM during Operating Systems course.
 - [huge list of instructions with detailed descriptions](https://c9x.me/x86/?fbclid=IwAR31tHS6P_aFyGEeYtsVvBVm8VMk0osdNss8i36Dpo7E4KW8U4Vi49UAmpo)
 - [which regesters are safe from being modified by syscalls](https://i.stack.imgur.com/WgcQv.png)
 - [syscalls](http://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/)
+- [operand sizes: byte, dword etc](https://stackoverflow.com/questions/12063840/what-are-the-sizes-of-tword-oword-and-yword-operands)
 
 ### DCL
 
