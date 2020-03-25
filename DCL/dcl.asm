@@ -93,7 +93,7 @@ section .text
   call    checkRange
 
   inc     r13b                        ; shift rotor R
-  cmp     r13b, 91                    ; check if out of range (91 = 'Z' + 1)
+  cmp     r13b, 'Z' + 1               ; check if out of range (91 = 'Z' + 1)
   jne     %%else
   mov     r13b, '1'                   ; skip this instruction if in range
 %%else:                     
@@ -110,7 +110,7 @@ section .text
   jne     %%start
 %%incLRotor:                          ; if it is, then shift rotor L
   inc     r12b
-  cmp     r12b, 91             
+  cmp     r12b, 'Z' + 1             
   jne     %%else3
   mov     r12b, '1'
 %%else3:                              ; and l'
