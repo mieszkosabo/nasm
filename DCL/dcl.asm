@@ -87,9 +87,12 @@ section .text
   mov     cl, '1'                     ; put arguments for checkRange
   mov     al, 'Z'                 
 %%loop:
+  cmp     r9, r10
+  je      %%end
   movzx   edx, byte [buffer + r9]     ; put letter to permutate in rdx
   test    rdx, rdx
   jz      %%end
+  
   call    checkRange
 
   inc     r13b                        ; shift rotor R
@@ -177,10 +180,11 @@ _start:
         
 reading:
   read                                ; syscall puts no. of bytes in rax
+  mov     r10, rax
   test    rax, rax                    ; check if EOF
   jz      exit                        
   cypher
-  print   buffer, r9                  ; r9 counts input in cypher macro
+  print   buffer, r10                 ; r9 counts input in cypher macro
   jmp     reading
 
 exit:                                 ; end program with success
