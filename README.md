@@ -1,7 +1,7 @@
 # nasm
 My programs written in NASM during Operating Systems course.
 
-# extremely helpful links
+## extremely helpful links
 
 - [x86_64 NASM Assembly register names](https://www.cs.uaf.edu/2017/fall/cs301/reference/x86_64.html)
 - [huge list of instructions with detailed descriptions](https://c9x.me/x86/?fbclid=IwAR31tHS6P_aFyGEeYtsVvBVm8VMk0osdNss8i36Dpo7E4KW8U4Vi49UAmpo)
