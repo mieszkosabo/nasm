@@ -9,6 +9,7 @@ My programs written in NASM during Operating Systems course.
 - [syscalls](http://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/)
 - [operand sizes: byte, dword etc](https://stackoverflow.com/questions/12063840/what-are-the-sizes-of-tword-oword-and-yword-operands)
 - [flags and comparisons (jne, jz, etc.)](http://unixwiz.net/techtips/x86-jumps.html)
+- [optimizing assembler](https://www.agner.org/optimize/optimizing_assembly.pdf?fbclid=IwAR3jZ1viqmtcM44qfKc8qICPHCG6mjN-0PWg7OYyJ-ZW8AkFV0PhSXzC4Bc)
 
 ### DCL
 
