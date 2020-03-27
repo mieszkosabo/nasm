@@ -10,7 +10,7 @@ global _start
 
 section .bss
   buffer  resb    BUFFER_SIZE
-  InvPerm resb    126
+  InvPerm resb    128
 
 section .text
 
@@ -50,9 +50,7 @@ section .text
 %endmacro
 
 %macro  checkKeys 0
-  mov     rsi, [rsp + 8 * 5]          ; put pointer to key in rsi
-  mov     cl, '1'                     ; put arguments for checkRange
-  mov     al, 'Z'                 
+  mov     rsi, [rsp + 8 * 5]          ; put pointer to key in rsi                
   checkKey r12b, r14b
   checkKey r13b, r15b
   cmp     [rsi], byte 0       
@@ -68,8 +66,8 @@ section .text
 %endmacro
 
 %macro read 0
-  mov     eax, SYS_READ
-  mov     edi, STD_IN
+  xor     eax, eax
+  xor     edi, edi
   mov     rsi, buffer
   mov     rdx, BUFFER_SIZE
   syscall
@@ -83,42 +81,12 @@ section .text
 ; This macro cyphers consequtive buffer letters until reaches a null byte.
 ; It also shifts rotors and checks if input is valid. 
 %macro cypher 0
-  xor     r9, r9                      ; letter index in buffer
-  mov     cl, '1'                     ; put arguments for checkRange
-  mov     al, 'Z'                 
+  xor     r9, r9                      ; letter index in buffer              
 %%loop:
-  cmp     r9, r10                     ; compare with no. of read bytes
-  je      %%end
   movzx   edx, byte [buffer + r9]     ; put letter to permutate in rdx
   call    checkRange
-
-  inc     r13b                        ; shift rotor R
-  cmp     r13b, 'Z' + 1               ; check if out of range (91 = 'Z' + 1)
-  jne     %%else
-  mov     r13b, '1'                   ; skip this instruction if in range
-%%else:                     
-  dec     r15b                        ; now, shift r'
-  cmp     r15b, '0'
-  jne     %%else2
-  mov     r15b, 'Z'
-%%else2:                              ; check if R is in turnover position
-  cmp     r13b, 'L'
-  je      %%incLRotor
-  cmp     r13b, 'R'
-  je      %%incLRotor
-  cmp     r13b, 'T'
-  jne     %%start
-%%incLRotor:                          ; if it is, then shift rotor L
-  inc     r12b
-  cmp     r12b, 'Z' + 1             
-  jne     %%else3
-  mov     r12b, '1'
-%%else3:                              ; and l'
-  dec     r14b
-  cmp     r14b, '0'
-  jne     %%start
-  mov     r14b, 'Z'
-%%start:
+  call    moveRotors
+  %%start:
   mov     bpl, r13b                   ; put arguments for Qperm in bpl
   call    Qperm                       ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
@@ -148,8 +116,9 @@ section .text
   call    Qperm                       ; Qr^-1
 
   mov     [buffer + r9], dl
-  inc     r9
-  jmp     %%loop
+  add     r9, 1
+  cmp     r9, r10                     ; compare with no. of read bytes
+  jne     %%loop
 %%end:
 %endmacro
 
@@ -189,6 +158,39 @@ exit:                                 ; end program with success
   xor     edi, edi                    ; exit code 0
   syscall
 
+moveRotors:
+  add     r13, 1                      ; shift rotor R
+  sub     r15, 1                      ; now, shift r'
+  cmp     r13b, 'Z' + 1               ; check if out of range (91 = 'Z' + 1)
+  je      shiftR ;shiftR
+  cmp     r15b, '0' ; check r'
+  je      shiftRdash ; ShiftR'
+  cmp     r13b, 'L'   ; czekujemy poz obrotową
+  je      incLRotor
+  cmp     r13b, 'R'
+  je      incLRotor
+  cmp     r13b, 'T'
+  je      incLRotor
+  ret
+shiftR:
+  mov     r13b, '1'                   ; shift r to beginning
+  ret
+shiftRdash:                     
+  mov     r15b, 'Z'
+  ret
+incLRotor:                          ; if it is, then shift rotor L
+  add     r12, 1  ; l++
+  sub     r14, 1  ; l'--
+  cmp     r12b, 'Z' + 1             
+  jne     else3
+  mov     r12b, '1'
+else3:                              
+  cmp     r14b, '0'
+  jne     else4
+  mov     r14b, 'Z'
+else4:
+  ret
+
 error:                                ; end program due to invalid input
   mov     eax, SYS_EXIT
   mov     edi, 1                      ; exit code 1
@@ -198,9 +200,7 @@ error:                                ; end program due to invalid input
 ; Permutation to validate should be in rbp.
 ; Puts inverse permutation in r8.
 checkParam:
-  mov     rsi, [rbp]                  ; put string in rsi
-  mov     cl, '1'                     ; put args for checkRange
-  mov     al, 'Z'                     
+  mov     rsi, [rbp]                  ; put string in rsi                    
   mov     r9, 49                      ; use r9 as counter
 loop:
   movzx   edx, byte [rsi]             ; put next character from permutation
@@ -220,9 +220,9 @@ return_from_check:
 
 ; Checks if letter in dl is between letters in cl and al.
 checkRange:
-  cmp     cl, dl          
-  ja      error           
-  cmp     dl, al
+  cmp     dl, '1'          
+  jb      error           
+  cmp     dl, 'Z'
   ja      error           
   ret
 
@@ -230,7 +230,7 @@ checkRange:
 ; Performs a cyclic shift of a letter in dl.
 Qperm:
   add     dl, bpl
-  sub     dl, '1'
+  ;sub     dl, '1'
   cmp     dl, 'Z'
   jbe     end
   sub     dl, ALPHABET_SIZE
