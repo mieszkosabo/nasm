@@ -230,7 +230,7 @@ checkRange:
 ; Performs a cyclic shift of a letter in dl.
 Qperm:
   add     dl, bpl
-  ;sub     dl, '1'
+  sub     dl, '1'
   cmp     dl, 'Z'
   jbe     end
   sub     dl, ALPHABET_SIZE
