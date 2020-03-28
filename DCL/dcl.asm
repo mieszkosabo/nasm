@@ -38,21 +38,19 @@ section .text
 ; a 'inverse key' to it: l' or r'. These dash keys are used
 ; for inverse cyclic shift (Q^-1). I store l, r, l' and r'
 ; in  r12, r13, r14 and r15 registers.
-%macro checkKey 2
+%macro checkKey 1
   movzx   edx, byte [rsi]
   test    rdx, rdx                    ; checks for unexpected null byte
   jz      error
   call    checkRange          
-  mov     %1, dl              
-  call    createInvKey                ; return value of createInvKey is in r8 
-  mov %2, r8b                 
+  mov     %1, dl                             
   inc     rsi                 
 %endmacro
 
 %macro  checkKeys 0
   mov     rsi, [rsp + 8 * 5]          ; put pointer to key in rsi                
-  checkKey r12b, r14b
-  checkKey r13b, r15b
+  checkKey r12b
+  checkKey r13b
   cmp     [rsi], byte 0       
   jne     error                       ; if it isn't the end then key is invalid 
 %endmacro
@@ -90,14 +88,14 @@ section .text
   mov     bpl, r13b                   ; put arguments for Qperm in bpl
   call    Qperm                       ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
-  mov     bpl, r15b
-  call    Qperm                       ; Qr^-1(x)
+  ;mov     bpl, r13b
+  call    QpermInv                    ; Qr^-1(x)
 
   mov     bpl, r12b
   call    Qperm                       ; Ql(x)
   Xperm   [rsp + 8 * 2]               ; L(x)
-  mov     bpl, r14b
-  call    Qperm                       ; Ql^-1(x)
+  ;mov     bpl, r12b
+  call    QpermInv                    ; Ql^-1(x)
 
   Xperm   [rsp + 8 * 4]               ; T(x)
 
@@ -105,15 +103,15 @@ section .text
   mov     bpl, r12b
   call    Qperm                       ; Ql
   Xperm   r8                          ; L^-1(x)
-  mov     bpl, r14b
-  call    Qperm                       ; Ql^-1(x)
+  ;mov     bpl, r12b
+  call    QpermInv                    ; Ql^-1(x)
 
   add     r8, ALPHABET_SIZE           ; move pointer from L^-1 to R^-1
   mov     bpl, r13b
   call    Qperm                       ; Qr
   Xperm   r8                          ; R^-1
-  mov     bpl, r15b
-  call    Qperm                       ; Qr^-1
+  ;mov     bpl, r13b
+  call    QpermInv                    ; Qr^-1
 
   mov     [buffer + r9], dl
   add     r9, 1
@@ -159,12 +157,11 @@ exit:                                 ; end program with success
   syscall
 
 moveRotors:
-  add     r13, 1                      ; shift rotor R
-  sub     r15, 1                      ; now, shift r'
+  add     r13b, 1                     ; shift rotor R
   cmp     r13b, 'Z' + 1               ; check if out of range (91 = 'Z' + 1)
-  je      shiftR ;shiftR
-  cmp     r15b, '0' ; check r'
-  je      shiftRdash ; ShiftR'
+  jne     else
+  mov     r13b, '1'
+else:
   cmp     r13b, 'L'   ; czekujemy poz obrotową
   je      incLRotor
   cmp     r13b, 'R'
@@ -172,23 +169,12 @@ moveRotors:
   cmp     r13b, 'T'
   je      incLRotor
   ret
-shiftR:
-  mov     r13b, '1'                   ; shift r to beginning
-  ret
-shiftRdash:                     
-  mov     r15b, 'Z'
-  ret
-incLRotor:                          ; if it is, then shift rotor L
-  add     r12, 1  ; l++
-  sub     r14, 1  ; l'--
-  cmp     r12b, 'Z' + 1             
-  jne     else3
+incLRotor:
+  add     r12b, 1
+  cmp     r12b, 'Z' + 1
+  jne     else2
   mov     r12b, '1'
-else3:                              
-  cmp     r14b, '0'
-  jne     else4
-  mov     r14b, 'Z'
-else4:
+else2:
   ret
 
 error:                                ; end program due to invalid input
@@ -237,14 +223,11 @@ Qperm:
 end:
   ret
 
-; Creates l' or r' and puts it r8b.
-; Arguments (l or r) should be in dl.
-createInvKey:
-  mov     r8b, dl
-  cmp     r8b, '1'
-  je      else
-  mov     r8b, 91
-  sub     r8b, dl
-  add     r8b, '1'
-else:
+QpermInv:
+  sub     dl, bpl
+  add     dl, '1'
+  cmp     dl, '1'
+  jae     endInv
+  add     dl, ALPHABET_SIZE
+endInv:
   ret
