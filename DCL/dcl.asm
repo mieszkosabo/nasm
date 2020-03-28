@@ -77,6 +77,24 @@ section .text
   movzx   edx, byte [rbx + rdx - '1'] ; permutate letter in rdx
 %endmacro
 
+; Arguments (r, l, r' or l') should be in bpl.
+; Performs a cyclic shift of a letter in dl.
+%macro Qperm 1
+  add     rdx, %1
+  mov     eax, edx
+  sub     eax, 42
+  cmp     eax, '1'
+  cmovge  edx, eax
+%endmacro
+
+%macro QpermInv 1
+  sub     rdx, %1
+  mov     eax, edx
+  add     eax, 42
+  cmp     eax, 'Z'
+  cmovbe  edx, eax
+%endmacro
+
 ; This macro cyphers consequtive buffer letters until reaches a null byte.
 ; It also shifts rotors and checks if input is valid. 
 %macro cypher 0
@@ -86,33 +104,25 @@ section .text
   call    checkRange
   call    moveRotors
   %%start:
-  mov     rbp, r13                   ; put arguments for Qperm in bpl
-  call    Qperm                       ; Qr(x)
+  Qperm   r13                       ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
-  ;mov     bpl, r13b
-  call    QpermInv                    ; Qr^-1(x)
+  QpermInv r13                    ; Qr^-1(x)
 
-  mov     rbp, r12
-  call    Qperm                       ; Ql(x)
+  Qperm   r12                       ; Ql(x)
   Xperm   [rsp + 8 * 2]               ; L(x)
-  ;mov     bpl, r12b
-  call    QpermInv                    ; Ql^-1(x)
+  QpermInv r12                    ; Ql^-1(x)
 
   Xperm   [rsp + 8 * 4]               ; T(x)
 
   lea     r8, [InvPerm]               ; put pointer to inverse permutations in r8
-  mov     rbp, r12
-  call    Qperm                       ; Ql
+  Qperm   r12                       ; Ql
   Xperm   r8                          ; L^-1(x)
-  ;mov     bpl, r12b
-  call    QpermInv                    ; Ql^-1(x)
+  QpermInv r12                    ; Ql^-1(x)
 
   add     r8, ALPHABET_SIZE           ; move pointer from L^-1 to R^-1
-  mov     rbp, r13
-  call    Qperm                       ; Qr
+  Qperm   r13                       ; Qr
   Xperm   r8                          ; R^-1
-  ;mov     bpl, r13b
-  call    QpermInv                    ; Qr^-1
+  QpermInv  r13                    ; Qr^-1
 
   mov     [buffer + r9], dl
   add     r9, 1
@@ -158,24 +168,21 @@ exit:                                 ; end program with success
   syscall
 
 moveRotors:
-  add     r13b, 1                     ; shift rotor R
-  cmp     r13b, 42               ; check if out of range (91 = 'Z' + 1)
-  jne     else
-  mov     r13b, 0
-else:
-  cmp     r13b, 'L' - '1'   ; czekujemy poz obrotową
+  xor     eax, eax
+  add     r13, 1                     ; shift rotor R
+  cmp     r13, 42                    ; check if out of range (91 = 'Z' + 1)
+  cmove   r13, rax
+  cmp     r13, 'L' - '1'             ; czekujemy poz obrotową
   je      incLRotor
-  cmp     r13b, 'R' - '1'
+  cmp     r13, 'R' - '1'
   je      incLRotor
-  cmp     r13b, 'T' - '1'
+  cmp     r13, 'T' - '1'
   je      incLRotor
   ret
 incLRotor:
-  add     r12b, 1
-  cmp     r12b, 42
-  jne     else2
-  mov     r12b, 0
-else2:
+  add     r12, 1
+  cmp     r12, 42
+  cmove   r12, rax
   ret
 
 error:                                ; end program due to invalid input
@@ -211,22 +218,4 @@ checkRange:
   jb      error           
   cmp     dl, 'Z'
   ja      error           
-  ret
-
-; Arguments (r, l, r' or l') should be in bpl.
-; Performs a cyclic shift of a letter in dl.
-Qperm:
-  add     edx, ebp
-  mov     eax, edx
-  sub     eax, 42
-  cmp     eax, '1'
-  cmovge  edx, eax
-  ret
-
-QpermInv:
-  sub     edx, ebp
-  mov     eax, edx
-  add     eax, 42
-  cmp     eax, 'Z'
-  cmovbe  edx, eax
   ret
