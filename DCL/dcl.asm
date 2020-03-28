@@ -43,15 +43,15 @@ section .text
   test    rdx, rdx                    ; checks for unexpected null byte
   jz      error
   call    checkRange          
-  mov     %1, dl            
+  mov     %1, rdx            
   sub     %1, '1'                 
   inc     rsi                 
 %endmacro
 
 %macro  checkKeys 0
   mov     rsi, [rsp + 8 * 5]          ; put pointer to key in rsi                
-  checkKey r12b
-  checkKey r13b
+  checkKey r12
+  checkKey r13
   cmp     [rsi], byte 0       
   jne     error                       ; if it isn't the end then key is invalid 
 %endmacro
@@ -86,13 +86,13 @@ section .text
   call    checkRange
   call    moveRotors
   %%start:
-  mov     bpl, r13b                   ; put arguments for Qperm in bpl
+  mov     rbp, r13                   ; put arguments for Qperm in bpl
   call    Qperm                       ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
   ;mov     bpl, r13b
   call    QpermInv                    ; Qr^-1(x)
 
-  mov     bpl, r12b
+  mov     rbp, r12
   call    Qperm                       ; Ql(x)
   Xperm   [rsp + 8 * 2]               ; L(x)
   ;mov     bpl, r12b
@@ -101,14 +101,14 @@ section .text
   Xperm   [rsp + 8 * 4]               ; T(x)
 
   lea     r8, [InvPerm]               ; put pointer to inverse permutations in r8
-  mov     bpl, r12b
+  mov     rbp, r12
   call    Qperm                       ; Ql
   Xperm   r8                          ; L^-1(x)
   ;mov     bpl, r12b
   call    QpermInv                    ; Ql^-1(x)
 
   add     r8, ALPHABET_SIZE           ; move pointer from L^-1 to R^-1
-  mov     bpl, r13b
+  mov     rbp, r13
   call    Qperm                       ; Qr
   Xperm   r8                          ; R^-1
   ;mov     bpl, r13b
@@ -216,19 +216,17 @@ checkRange:
 ; Arguments (r, l, r' or l') should be in bpl.
 ; Performs a cyclic shift of a letter in dl.
 Qperm:
-  add     dl, bpl
-  ;sub     dl, '1'
-  cmp     dl, 'Z'
-  jbe     end
-  sub     dl, ALPHABET_SIZE
-end:
+  add     edx, ebp
+  mov     eax, edx
+  sub     eax, 42
+  cmp     eax, '1'
+  cmovge  edx, eax
   ret
 
 QpermInv:
-  sub     dl, bpl
-  ;add     dl, '1'
-  cmp     dl, '1'
-  jae     endInv
-  add     dl, ALPHABET_SIZE
-endInv:
+  sub     edx, ebp
+  mov     eax, edx
+  add     eax, 42
+  cmp     eax, 'Z'
+  cmovbe  edx, eax
   ret
