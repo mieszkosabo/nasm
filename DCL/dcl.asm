@@ -43,7 +43,8 @@ section .text
   test    rdx, rdx                    ; checks for unexpected null byte
   jz      error
   call    checkRange          
-  mov     %1, dl                             
+  mov     %1, dl            
+  sub     %1, '1'                 
   inc     rsi                 
 %endmacro
 
@@ -158,22 +159,22 @@ exit:                                 ; end program with success
 
 moveRotors:
   add     r13b, 1                     ; shift rotor R
-  cmp     r13b, 'Z' + 1               ; check if out of range (91 = 'Z' + 1)
+  cmp     r13b, 42               ; check if out of range (91 = 'Z' + 1)
   jne     else
-  mov     r13b, '1'
+  mov     r13b, 0
 else:
-  cmp     r13b, 'L'   ; czekujemy poz obrotową
+  cmp     r13b, 'L' - '1'   ; czekujemy poz obrotową
   je      incLRotor
-  cmp     r13b, 'R'
+  cmp     r13b, 'R' - '1'
   je      incLRotor
-  cmp     r13b, 'T'
+  cmp     r13b, 'T' - '1'
   je      incLRotor
   ret
 incLRotor:
   add     r12b, 1
-  cmp     r12b, 'Z' + 1
+  cmp     r12b, 42
   jne     else2
-  mov     r12b, '1'
+  mov     r12b, 0
 else2:
   ret
 
@@ -216,7 +217,7 @@ checkRange:
 ; Performs a cyclic shift of a letter in dl.
 Qperm:
   add     dl, bpl
-  sub     dl, '1'
+  ;sub     dl, '1'
   cmp     dl, 'Z'
   jbe     end
   sub     dl, ALPHABET_SIZE
@@ -225,7 +226,7 @@ end:
 
 QpermInv:
   sub     dl, bpl
-  add     dl, '1'
+  ;add     dl, '1'
   cmp     dl, '1'
   jae     endInv
   add     dl, ALPHABET_SIZE
