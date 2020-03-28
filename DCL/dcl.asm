@@ -77,17 +77,16 @@ section .text
   movzx   edx, byte [rbx + rdx - '1'] ; permutate letter in rdx
 %endmacro
 
-; Arguments (r, l, r' or l') should be in bpl.
 ; Performs a cyclic shift of a letter in dl.
-%macro Qperm 1
-  add     rdx, %1
-  mov     eax, edx
-  sub     eax, 42
+%macro Q 1
+  add     rdx, %1                     ; x += r (or l)
+  mov     eax, edx                    
+  sub     eax, 42                     ; y = x + r - 42
   cmp     eax, '1'
-  cmovge  edx, eax
+  cmovge  edx, eax                    ; if x out of range -> x = y
 %endmacro
 
-%macro QpermInv 1
+%macro QInv 1
   sub     rdx, %1
   mov     eax, edx
   add     eax, 42
@@ -108,12 +107,12 @@ section .text
   jb      error           
   cmp     dl, 'Z'
   ja      error 
-
-  xor     eax, eax
-  add     r13, 1                     ; shift rotor R
-  cmp     r13, 42                    ; check if out of range (91 = 'Z' + 1)
-  cmove   r13, rax
-  cmp     r13, 'L' - '1'             ; czekujemy poz obrotową
+  
+  xor     eax, eax                    ; eax will be used for comparison with 0
+  add     r13, 1                      ; shift rotor R
+  cmp     r13, 42                     ; check if out of range (91 = 'Z' + 1)
+  cmove   r13, rax                    ; shift R to beginning
+  cmp     r13, 'L' - '1'              ; check if in turnover position
   je      %%incLRotor
   cmp     r13, 'R' - '1'
   je      %%incLRotor
@@ -121,37 +120,34 @@ section .text
   je      %%incLRotor
 
   %%start:
-  Qperm   r13                       ; Qr(x)
+  Q       r13                         ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
-  QpermInv r13                    ; Qr^-1(x)
+  QInv    r13                         ; Qr^-1(x)
 
-  Qperm   r12                       ; Ql(x)
+  Q       r12                         ; Ql(x)
   Xperm   [rsp + 8 * 2]               ; L(x)
-  QpermInv r12                    ; Ql^-1(x)
+  QInv    r12                         ; Ql^-1(x)
 
   Xperm   [rsp + 8 * 4]               ; T(x)
 
   lea     r8, [InvPerm]               ; put pointer to inverse permutations in r8
-  Qperm   r12                       ; Ql
+  Q       r12                         ; Ql
   Xperm   r8                          ; L^-1(x)
-  QpermInv r12                    ; Ql^-1(x)
+  QInv    r12                         ; Ql^-1(x)
 
   add     r8, ALPHABET_SIZE           ; move pointer from L^-1 to R^-1
-  Qperm   r13                       ; Qr
+  Q       r13                         ; Qr
   Xperm   r8                          ; R^-1
-  QpermInv  r13                    ; Qr^-1
+  QInv    r13                         ; Qr^-1
 
   mov     [buffer + r9], dl
   add     r9, 1
-  
   jmp     %%loop
-
-%%incLRotor:
+%%incLRotor:                          ; shifts rotor L
   add     r12, 1
   cmp     r12, 42
   cmove   r12, rax
   jmp     %%start
-
 %%end:
 %endmacro
 
@@ -218,7 +214,7 @@ return_from_check:
   jne     error                       ; 42 chars (42 + 49 = 91)
   ret
 
-; Checks if letter in dl is between letters in cl and al.
+; Checks if letter in dl is between '1' and 'Z'.
 checkRange:
   cmp     dl, '1'          
   jb      error           
