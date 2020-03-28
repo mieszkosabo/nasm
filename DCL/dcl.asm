@@ -100,9 +100,26 @@ section .text
 %macro cypher 0
   xor     r9, r9                      ; letter index in buffer              
 %%loop:
+  cmp     r9, r10                     ; compare with no. of read bytes
+  je      %%end
   movzx   edx, byte [buffer + r9]     ; put letter to permutate in rdx
-  call    checkRange
-  call    moveRotors
+  
+  cmp     dl, '1'                     ; check range       
+  jb      error           
+  cmp     dl, 'Z'
+  ja      error 
+
+  xor     eax, eax
+  add     r13, 1                     ; shift rotor R
+  cmp     r13, 42                    ; check if out of range (91 = 'Z' + 1)
+  cmove   r13, rax
+  cmp     r13, 'L' - '1'             ; czekujemy poz obrotową
+  je      %%incLRotor
+  cmp     r13, 'R' - '1'
+  je      %%incLRotor
+  cmp     r13, 'T' - '1'
+  je      %%incLRotor
+
   %%start:
   Qperm   r13                       ; Qr(x)
   Xperm   [rsp + 8 * 3]               ; R(x)
@@ -126,8 +143,15 @@ section .text
 
   mov     [buffer + r9], dl
   add     r9, 1
-  cmp     r9, r10                     ; compare with no. of read bytes
-  jne     %%loop
+  
+  jmp     %%loop
+
+%%incLRotor:
+  add     r12, 1
+  cmp     r12, 42
+  cmove   r12, rax
+  jmp     %%start
+
 %%end:
 %endmacro
 
@@ -166,24 +190,6 @@ exit:                                 ; end program with success
   mov     eax, SYS_EXIT
   xor     edi, edi                    ; exit code 0
   syscall
-
-moveRotors:
-  xor     eax, eax
-  add     r13, 1                     ; shift rotor R
-  cmp     r13, 42                    ; check if out of range (91 = 'Z' + 1)
-  cmove   r13, rax
-  cmp     r13, 'L' - '1'             ; czekujemy poz obrotową
-  je      incLRotor
-  cmp     r13, 'R' - '1'
-  je      incLRotor
-  cmp     r13, 'T' - '1'
-  je      incLRotor
-  ret
-incLRotor:
-  add     r12, 1
-  cmp     r12, 42
-  cmove   r12, rax
-  ret
 
 error:                                ; end program due to invalid input
   mov     eax, SYS_EXIT
