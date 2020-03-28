@@ -1,7 +1,5 @@
 SYS_WRITE       equ 1
 SYS_EXIT        equ 60
-SYS_READ        equ 0
-STD_IN          equ 0
 STD_OUT         equ 1
 ALPHABET_SIZE   equ 42  
 BUFFER_SIZE     equ 4096
