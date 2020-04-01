@@ -13,16 +13,11 @@ My programs written in NASM during Operating Systems course.
 
 ### DCL
 
-todo ocb
-compile with
-```
-nasm -f elf64 -w+all -w+error -o dcl.o dcl.asm && ld --fatal-warnings -o dcl dcl.o
-
-```
+A little-simpler-than-enigma encryption device. 
 
 ### PIX
 
-todo ocb
+A function for calculating concurrently PI's decimal places in binary.
 
 
 
