@@ -15,7 +15,7 @@ section .text
 %macro mulFractions 2
   mov rax, %1
   mul %2
-  mov rax, rdx ; w rax mamy wynik (ew może być w rdx, zobaczymy)
+  ;mov rax, rdx ; w rax mamy wynik (ew może być w rdx, zobaczymy)
 %endmacro
 
 %macro modPower 0
@@ -56,6 +56,7 @@ section .text
 %%end:
 %endmacro
 
+; first arg is j, second n
 cntCj:
   mov r15, rdi ; j do r15
   xor ebp, ebp
@@ -74,12 +75,54 @@ loop:
   sub rsi, 1    ; n-k
   cmp rbp, r14  ; cmp k with n
   jbe loop
+
+  mov rdi, 0x1000000000000000 ; {1/16}
+  mov r12, rdi ; currPow i num
+loop2:
+  mov rax, r12  ; do num wkładam curPow
+  xor rdx, rdx
+  div r8        ; curPow / 8k+j
+  test rax, rax
+  jz end
+  add r13, rax  ; res += curPart
+  xor rdx, rdx
+  mulFractions r12, rdi
+  mov r12, rdx ; przenoszę wynik do r12
+  add rbp, 1    ; k++
+  mov r8, rbp   ; r8 = k
+  shl r8, 3     ; r8 = 8*k
+  add r8, r15   ; r8 = 8*k+j
+  jmp loop2
+end:
   mov rax, r13
   ret
 
+; n is parameter
+%macro BBP 1
+
+  mov rdi, 1
+  mov rsi, %1
+  call cntCj
+  mov rbx, rax
+  shl rbx, 2
+
+  mov rdi, 4
+  mov rsi, %1
+  call cntCj
+
+  mov rdi, 5
+  mov rsi, %1
+  call cntCj
+
+  mov rdi, 6
+  mov rsi, %1
+  call cntCj
+
+%endmacro
+
 pix:
   push rdi
-  mov rdi, 6
+  mov rdi, 1
   mov rsi, 5
   call cntCj
   pop rdi
