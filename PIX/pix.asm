@@ -15,20 +15,18 @@ section .text
 %macro mulFractions 2
   mov rax, %1
   mul %2
-  ;mov rax, rdx ; w rax mamy wynik (ew może być w rdx, zobaczymy)
 %endmacro
 
 %macro modPower 0
-  ;mov    r8,rdx ; p do r8 wkładamy
-  ;mov    rax,rdi ; x do rax'a, bo będziemy brać resztę z dzielenia
   mov    r12, rsi ; y <- n-k
+  test   r12,r12 ; sprawdzamy czy y jest > 0
+  je     %%one   ; jeśli mamy podnieść zioma do 0, outujemy z res 1
   xor    edx,edx ; zerujemy rdx
   div    r8      ; dzielimy przez p
   test   rdx,rdx ; w rdx mamy resztę z dzielenia, sprawdzamy czy niezerową
   mov    r9,rdx  ; przenosimy ją do r9
   je     %%exit  ; jeśli to zero to out
-  test   r12,r12 ; sprawdzamy czy y jest > 0
-  je     %%one      ; jeśli mamy podnieść zioma do 0, outujemy
+  
   mov    rcx,rdx ; przenosimy x do rcx
   mov    r9d,0x1 ; wkładamy 1 fo r9
   nop
@@ -52,14 +50,18 @@ section .text
   mov    rax,r9
   jmp    %%end   
 %%one:
-  mov    rax,0x1 
+  mov    rax, 0x1
+  xor    edi, edi
+  cmp    r8, 1 
+  cmove  eax, edi     
 %%end:
 %endmacro
 
 ; first arg is j, second n
 cntCj:
+  push r8
   mov r15, rdi ; j do r15
-  xor ebp, ebp
+  xor ebp, ebp ; k = 0, licznik
   mov r14, rsi ; n do r14
   mov r8, rdi
   xor r13, r13 ; miejsce na wynik
@@ -95,35 +97,37 @@ loop2:
   jmp loop2
 end:
   mov rax, r13
+  pop r8
   ret
 
 ; n is parameter
 %macro BBP 1
-
   mov rdi, 1
   mov rsi, %1
   call cntCj
-  mov rbx, rax
-  shl rbx, 2
+  lea rbx, [rax+rax*1]
 
   mov rdi, 4
   mov rsi, %1
   call cntCj
+  sub rbx, rax
+  add rbx, rbx
 
   mov rdi, 5
   mov rsi, %1
   call cntCj
+  sub rbx, rax
 
   mov rdi, 6
   mov rsi, %1
   call cntCj
-
+  sub rbx, rax
 %endmacro
 
 pix:
   push rdi
-  mov rdi, 1
-  mov rsi, 5
-  call cntCj
+  mov r8, 8
+  BBP r8
+  mov rax, rbx
   pop rdi
   ret
